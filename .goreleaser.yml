@@ -25,6 +25,7 @@ archives:
   - id: archive
     files:
       - LICENSE
+      - files/subid-ldap.service
 checksum:
   name_template: 'checksums.txt'
 release:
