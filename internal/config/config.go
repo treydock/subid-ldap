@@ -14,8 +14,7 @@
 package config
 
 const (
-	AppName     = "subid-ldap"
-	MetricsPath = "/metrics"
+	AppName = "subid-ldap"
 )
 
 type Config struct {

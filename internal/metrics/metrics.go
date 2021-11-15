@@ -14,14 +14,20 @@
 package metrics
 
 import (
+	"net/http"
 	"time"
 
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
+	"github.com/treydock/subid-ldap/internal/config"
 )
 
 const (
 	metricsNamespace = "subid_ldap"
+	metricsPath      = "/metrics"
 )
 
 var (
@@ -70,6 +76,10 @@ var (
 )
 
 func init() {
+	ResetMetrics()
+}
+
+func ResetMetrics() {
 	metricBuildInfo.Set(1)
 	MetricError.Set(0)
 	MetricSubIDTotal.Set(0)
@@ -77,7 +87,7 @@ func init() {
 	MetricSubIDRemoved.Set(0)
 }
 
-func MetricGathers() prometheus.Gatherers {
+func MetricGathers(processMetrics bool) prometheus.Gatherers {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(metricBuildInfo)
 	registry.MustRegister(MetricError)
@@ -86,12 +96,32 @@ func MetricGathers() prometheus.Gatherers {
 	registry.MustRegister(MetricSubIDTotal)
 	registry.MustRegister(MetricSubIDAdded)
 	registry.MustRegister(MetricSubIDRemoved)
-	return prometheus.Gatherers{prometheus.DefaultGatherer, registry}
+	gatherers := prometheus.Gatherers{registry}
+	if processMetrics {
+		gatherers = append(gatherers, prometheus.DefaultGatherer)
+	}
+	return gatherers
 }
 
-func MetricsWrite(path string, gatherers prometheus.Gatherers) error {
+func MetricsServer(listenAddress string) error {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+	             <head><title>` + config.AppName + `</title></head>
+	             <body>
+	             <h1>` + config.AppName + `</h1>
+	             <p><a href='` + metricsPath + `'>Metrics</a></p>
+	             </body>
+	             </html>`))
+	})
+	http.Handle(metricsPath, promhttp.HandlerFor(MetricGathers(true), promhttp.HandlerOpts{}))
+	return http.ListenAndServe(listenAddress, nil)
+}
+
+func MetricsWrite(path string, gatherers prometheus.Gatherers, logger log.Logger) {
 	err := prometheus.WriteToTextfile(path, gatherers)
-	return err
+	if err != nil {
+		level.Error(logger).Log("msg", "Failed to write metrics file", "err", err)
+	}
 }
 
 func Duration() func() {
