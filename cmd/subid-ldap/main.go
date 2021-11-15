@@ -15,6 +15,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -69,6 +70,9 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+
+	level.Info(logger).Log("msg", fmt.Sprintf("Starting %s", config.AppName), "version", version.Info())
+	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
 
 	metricGathers := metrics.MetricGathers()
 	if *daemon {
