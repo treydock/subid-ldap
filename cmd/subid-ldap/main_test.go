@@ -15,12 +15,15 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/treydock/subid-ldap/internal/metrics"
 	"github.com/treydock/subid-ldap/internal/test"
@@ -28,7 +31,8 @@ import (
 )
 
 const (
-	ldapserver = "127.0.0.1:10389"
+	ldapserver     = "127.0.0.1:10389"
+	metricsAddress = "127.0.0.1:18085"
 )
 
 var (
@@ -71,14 +75,21 @@ func TestRun(t *testing.T) {
 		t.Errorf("Unexpected error: %s", err)
 	}
 	defer os.Remove(subgid)
+	tmpMetrics, err := test.CreateTmpFile("metrics", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(tmpMetrics)
 	args := append([]string{
 		fmt.Sprintf("--subid.subuid=%s", subuid),
 		fmt.Sprintf("--subid.subgid=%s", subgid),
 		fmt.Sprintf("--ldap.user-filter=%s", test.UserFilter),
+		fmt.Sprintf("--metrics.path=%s", tmpMetrics),
 	}, baseArgs...)
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Fatal(err)
 	}
+	metrics.ResetMetrics()
 	err = run(logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -104,24 +115,32 @@ func TestRun(t *testing.T) {
 		t.Errorf("Unexpected subuid content:\nGot:\n%s\nExpected:\n%s", string(subgidContent), expectedSubUID)
 	}
 
-	expected := `
-	# HELP subid_ldap_error Indicates an error was encountered
-	# TYPE subid_ldap_error gauge
-	subid_ldap_error 0
-	# HELP subid_ldap_subid_added Number of subid entries added
-	# TYPE subid_ldap_subid_added gauge
-	subid_ldap_subid_added 4
-	# HELP subid_ldap_subid_removed Number of subid entries removed
-	# TYPE subid_ldap_subid_removed gauge
-	subid_ldap_subid_removed 0
-	# HELP subid_ldap_subid_total Total number of subid entries
-	# TYPE subid_ldap_subid_total gauge
-	subid_ldap_subid_total 4
-	`
+	expectedErr := `# HELP subid_ldap_error Indicates an error was encountered
+# TYPE subid_ldap_error gauge
+subid_ldap_error 0`
+	expectedMetrics := `# HELP subid_ldap_subid_added Number of subid entries added
+# TYPE subid_ldap_subid_added gauge
+subid_ldap_subid_added 4
+# HELP subid_ldap_subid_removed Number of subid entries removed
+# TYPE subid_ldap_subid_removed gauge
+subid_ldap_subid_removed 0
+# HELP subid_ldap_subid_total Total number of subid entries
+# TYPE subid_ldap_subid_total gauge
+subid_ldap_subid_total 4`
 
-	if err := testutil.GatherAndCompare(metrics.MetricGathers(), strings.NewReader(expected),
+	if err := testutil.GatherAndCompare(metrics.MetricGathers(false), strings.NewReader(expectedErr+"\n"+expectedMetrics+"\n"),
 		"subid_ldap_error", "subid_ldap_subid_added", "subid_ldap_subid_removed", "subid_ldap_subid_total"); err != nil {
 		t.Errorf("unexpected collecting result:\n%s", err)
+	}
+	metricsContent, err := os.ReadFile(tmpMetrics)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if !strings.Contains(string(metricsContent), expectedErr) {
+		t.Errorf("Unexpected metrics file content\nExpected:\n%s\nGot:\n%s", expectedErr, string(metricsContent))
+	}
+	if !strings.Contains(string(metricsContent), expectedMetrics) {
+		t.Errorf("Unexpected metrics file content\nExpected:\n%s\nGot:\n%s", expectedMetrics, string(metricsContent))
 	}
 
 	args = append([]string{
@@ -177,6 +196,7 @@ func TestRunExisting(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Fatal(err)
 	}
+	metrics.ResetMetrics()
 	err = run(logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -217,7 +237,7 @@ func TestRunExisting(t *testing.T) {
 	subid_ldap_subid_total 4
 	`
 
-	if err := testutil.GatherAndCompare(metrics.MetricGathers(), strings.NewReader(expected),
+	if err := testutil.GatherAndCompare(metrics.MetricGathers(false), strings.NewReader(expected),
 		"subid_ldap_error", "subid_ldap_subid_added", "subid_ldap_subid_removed", "subid_ldap_subid_total"); err != nil {
 		t.Errorf("unexpected collecting result:\n%s", err)
 	}
@@ -268,9 +288,66 @@ func TestRunExisting(t *testing.T) {
 	subid_ldap_subid_total 3
 	`
 
-	if err := testutil.GatherAndCompare(metrics.MetricGathers(), strings.NewReader(expected),
+	if err := testutil.GatherAndCompare(metrics.MetricGathers(false), strings.NewReader(expected),
 		"subid_ldap_error", "subid_ldap_subid_added", "subid_ldap_subid_removed", "subid_ldap_subid_total"); err != nil {
 		t.Errorf("unexpected collecting result:\n%s", err)
+	}
+}
+
+func TestRunDaemonMetrics(t *testing.T) {
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	subuid, err := test.CreateTmpFile("subuid", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(subuid)
+	subgid, err := test.CreateTmpFile("subgid", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(subgid)
+	args := append([]string{
+		fmt.Sprintf("--subid.subuid=%s", subuid),
+		fmt.Sprintf("--subid.subgid=%s", subgid),
+		fmt.Sprintf("--ldap.user-filter=%s", test.UserFilter),
+		fmt.Sprintf("--metrics.listen-address=%s", metricsAddress),
+	}, baseArgs...)
+	if _, err := kingpin.CommandLine.Parse(args); err != nil {
+		t.Fatal(err)
+	}
+	metrics.ResetMetrics()
+	go func() {
+		if err := metrics.MetricsServer(metricsAddress); err != nil {
+			level.Error(logger).Log("err", err)
+		}
+	}()
+	err = run(logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	metricsContent, err := queryExporter("/metrics", 200)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	expected := `# HELP subid_ldap_subid_added Number of subid entries added
+# TYPE subid_ldap_subid_added gauge
+subid_ldap_subid_added 4
+# HELP subid_ldap_subid_removed Number of subid entries removed
+# TYPE subid_ldap_subid_removed gauge
+subid_ldap_subid_removed 0
+# HELP subid_ldap_subid_total Total number of subid entries
+# TYPE subid_ldap_subid_total gauge
+subid_ldap_subid_total 4`
+	if !strings.Contains(metricsContent, expected) {
+		t.Errorf("Unexpected metrics content.\nExpected:\n%s\nGot:\n%s", expected, metricsContent)
+	}
+	metricsContent, err = queryExporter("/", 200)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if !strings.Contains(metricsContent, "Metrics") {
+		t.Errorf("Unexpected metrics content.\nGot:\n%s", metricsContent)
 	}
 }
 
@@ -296,4 +373,22 @@ func TestValidateArgs(t *testing.T) {
 	if !strings.Contains(err.Error(), "both LDAP Bind DN and Bind Password") {
 		t.Errorf("Expected error about missing bind args")
 	}
+}
+
+func queryExporter(path string, want int) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("http://%s%s", metricsAddress, path))
+	if err != nil {
+		return "", err
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if err := resp.Body.Close(); err != nil {
+		return "", err
+	}
+	if have := resp.StatusCode; want != have {
+		return "", fmt.Errorf("want /eseries status code %d, have %d. Body:\n%s", want, have, b)
+	}
+	return string(b), nil
 }

@@ -16,14 +16,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
@@ -74,20 +72,9 @@ func main() {
 	level.Info(logger).Log("msg", fmt.Sprintf("Starting %s", config.AppName), "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
 
-	metricGathers := metrics.MetricGathers()
 	if *daemon {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`<html>
-		             <head><title>` + config.AppName + `</title></head>
-		             <body>
-		             <h1>` + config.AppName + `</h1>
-		             <p><a href='` + config.MetricsPath + `'>Metrics</a></p>
-		             </body>
-		             </html>`))
-		})
-		http.Handle(config.MetricsPath, promhttp.HandlerFor(metricGathers, promhttp.HandlerOpts{}))
 		go func() {
-			if err := http.ListenAndServe(*listenAddress, nil); err != nil {
+			if err := metrics.MetricsServer(*listenAddress); err != nil {
 				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 				os.Exit(1)
 			}
@@ -104,12 +91,6 @@ func main() {
 		if *daemon {
 			time.Sleep(*daemonUpdateInterval)
 		} else {
-			if *metricsPath != "" {
-				err = metrics.MetricsWrite(*metricsPath, metricGathers)
-				if err != nil {
-					level.Error(logger).Log("msg", "Failed to write metrics file", "err", err)
-				}
-			}
 			os.Exit(exitCode)
 		}
 	}
@@ -118,6 +99,9 @@ func main() {
 func run(logger log.Logger) error {
 	metrics.MetricLastRun.Set(float64(time.Now().Unix()))
 	defer metrics.Duration()()
+	if !*daemon && *metricsPath != "" {
+		defer metrics.MetricsWrite(*metricsPath, metrics.MetricGathers(false), logger)
+	}
 	config := &config.Config{
 		LdapURL:         *ldapURL,
 		LdapTLS:         *ldapTLS,
