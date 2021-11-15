@@ -326,7 +326,7 @@ func TestRunDaemonMetrics(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	metricsContent, err := queryExporter(200)
+	metricsContent, err := queryExporter("/metrics", 200)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
@@ -341,6 +341,13 @@ subid_ldap_subid_removed 0
 subid_ldap_subid_total 4`
 	if !strings.Contains(metricsContent, expected) {
 		t.Errorf("Unexpected metrics content.\nExpected:\n%s\nGot:\n%s", expected, metricsContent)
+	}
+	metricsContent, err = queryExporter("/", 200)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if !strings.Contains(metricsContent, "Metrics") {
+		t.Errorf("Unexpected metrics content.\nGot:\n%s", metricsContent)
 	}
 }
 
@@ -368,8 +375,8 @@ func TestValidateArgs(t *testing.T) {
 	}
 }
 
-func queryExporter(want int) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("http://%s/metrics", metricsAddress))
+func queryExporter(path string, want int) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("http://%s%s", metricsAddress, path))
 	if err != nil {
 		return "", err
 	}
