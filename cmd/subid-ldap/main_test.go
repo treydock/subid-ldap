@@ -273,3 +273,27 @@ func TestRunExisting(t *testing.T) {
 		t.Errorf("unexpected collecting result:\n%s", err)
 	}
 }
+
+func TestValidateArgs(t *testing.T) {
+	if _, err := kingpin.CommandLine.Parse([]string{}); err == nil {
+		t.Errorf("Expected error parsing lack of args")
+	}
+	baseArgs = []string{
+		fmt.Sprintf("--ldap.url=ldap://%s", ldapserver),
+		fmt.Sprintf("--ldap.user-base-dn=%s", test.UserBaseDN),
+	}
+	args := append(baseArgs, []string{
+		fmt.Sprintf("--ldap.bind-dn=%s", test.BindDN),
+		"--ldap.bind-password=",
+	}...)
+	if _, err := kingpin.CommandLine.Parse(args); err != nil {
+		t.Errorf("Error parsing args %s", err.Error())
+	}
+	err := validateArgs(log.NewNopLogger())
+	if err == nil {
+		t.Fatal("Expected errors")
+	}
+	if !strings.Contains(err.Error(), "both LDAP Bind DN and Bind Password") {
+		t.Errorf("Expected error about missing bind args")
+	}
+}

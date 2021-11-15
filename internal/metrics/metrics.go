@@ -14,6 +14,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
 )
@@ -90,4 +92,11 @@ func MetricGathers() prometheus.Gatherers {
 func MetricsWrite(path string, gatherers prometheus.Gatherers) error {
 	err := prometheus.WriteToTextfile(path, gatherers)
 	return err
+}
+
+func Duration() func() {
+	start := time.Now()
+	return func() {
+		MetricDuration.Set(time.Since(start).Seconds())
+	}
 }

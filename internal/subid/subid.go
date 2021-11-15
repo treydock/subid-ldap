@@ -35,6 +35,7 @@ const (
 var (
 	SubUIDPath = "/etc/subuid"
 	SubGIDPath = "/etc/subgid"
+	maxID      = math.Pow(2, 32) - 1
 )
 
 type SubIDEntry struct {
@@ -59,7 +60,6 @@ func SubIDKeys(input SubID) []int {
 }
 
 func SubIDGenerate(config *config.Config, logger log.Logger) SubID {
-	maxID := math.Pow(2, 32) - 1
 	length := ((maxID - float64(config.SubIDStart)) / float64(config.SubIDRange))
 	level.Debug(logger).Log("msg", "Generate entries",
 		"length", int64(math.Floor(length)), "max", maxID, "start", config.SubIDStart, "range", config.SubIDRange)
@@ -182,10 +182,12 @@ func SubIDUpdate(users []string, existing SubID, subids SubID, path string, logg
 			unassignedIDs = append(unassignedIDs, id)
 		}
 	}
+	level.Debug(logger).Log("unassignedIDs", len(unassignedIDs))
 
 	//Add users
 	for i, uid := range newUIDs {
-		if i > (len(unassignedIDs) + 1) {
+		level.Debug(logger).Log("msg", "Add users", "i", i, "unassignedIDs", len(unassignedIDs), "uid", uid)
+		if i >= len(unassignedIDs) {
 			level.Error(logger).Log("msg", "Insufficient subids available", "uid", uid)
 			metrics.MetricError.Set(1)
 			break

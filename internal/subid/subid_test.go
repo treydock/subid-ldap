@@ -87,6 +87,18 @@ func TestSubIDUnManaged(t *testing.T) {
 	}
 }
 
+func TestSubIDManagedErrors(t *testing.T) {
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	managed, err := SubIDManaged("/dne", logger)
+	if err != nil {
+		t.Fatalf("Unexpected error %s", err)
+	}
+	if !managed {
+		t.Errorf("File should be managed, not unmanaged")
+	}
+}
+
 func TestSubIDLoad(t *testing.T) {
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
@@ -95,6 +107,7 @@ func TestSubIDLoad(t *testing.T) {
 		t.Errorf("Unexpected error: %s", err)
 		return
 	}
+	defer os.Remove(fixture)
 	subids, err := SubIDLoad(fixture, logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -105,6 +118,33 @@ func TestSubIDLoad(t *testing.T) {
 		return
 	}
 	if val := (*subids)[65537].UID; val != "1000" {
+		t.Errorf("Unexpected value for UID, got: %s", val)
+	}
+}
+
+func TestSubIDLoadErrors(t *testing.T) {
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	_, err := SubIDLoad("/dne", logger)
+	if err == nil {
+		t.Fatal("Expected an error")
+	}
+	fixture, err := test.CreateSubUIDFixture("subuid-bad")
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+		return
+	}
+	defer os.Remove(fixture)
+	subids, err := SubIDLoad(fixture, logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+		return
+	}
+	if len(*subids) != 1 {
+		t.Errorf("Unexpected number of subids returned, got %d", len(*subids))
+		return
+	}
+	if val := (*subids)[196611].UID; val != "1003" {
 		t.Errorf("Unexpected value for UID, got: %s", val)
 	}
 }
@@ -138,15 +178,24 @@ func TestSubIDSaveNew(t *testing.T) {
 	}
 }
 
+func TestSubIDSaveNewErrors(t *testing.T) {
+	users := []string{"1000", "1002", "1003"}
+	c := test.TestConfig()
+	err := SubIDSaveNew(users, "/dne/test", &c)
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+}
+
 func TestSubIDUpdate(t *testing.T) {
 	w := log.NewSyncWriter(os.Stderr)
 	logger := log.NewLogfmtLogger(w)
-	tmp, err := os.CreateTemp("", "subuid")
+	tmp, err := test.CreateTmpFile("subuid", logger)
 	if err != nil {
 		t.Errorf("Error creating temp file: %s", err)
 		return
 	}
-	defer os.Remove(tmp.Name())
+	defer os.Remove(tmp)
 	users := []string{"1000", "1001", "1002"}
 	fixture, err := test.CreateSubUIDFixture("subuid1")
 	if err != nil {
@@ -160,12 +209,12 @@ func TestSubIDUpdate(t *testing.T) {
 	}
 	c := test.TestConfig()
 	subids := SubIDGenerate(&c, logger)
-	err = SubIDUpdate(users, existing, subids, tmp.Name(), logger)
+	err = SubIDUpdate(users, existing, subids, tmp, logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 		return
 	}
-	savedVal, err := SubIDLoad(tmp.Name(), logger)
+	savedVal, err := SubIDLoad(tmp, logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 		return
@@ -181,5 +230,53 @@ func TestSubIDUpdate(t *testing.T) {
 	}
 	if val := (*savedVal)[196611].UID; val != "1002" {
 		t.Errorf("Unexpected value for UID, got %s\n%+v", val, *savedVal)
+	}
+}
+
+func TestSubIDUpdateError(t *testing.T) {
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	c := test.TestConfig()
+	subids := SubIDGenerate(&c, logger)
+	users := []string{"1000", "1001", "1002"}
+	existing, _ := SubIDLoad("/dne/test", logger)
+	err := SubIDUpdate(users, existing, subids, "/dne/test", logger)
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+	oldMaxID := maxID
+	maxID = float64(c.SubIDStart * 2)
+	subids = SubIDGenerate(&c, logger)
+	maxID = oldMaxID
+	tmp, err := test.CreateTmpFile("subuid", logger)
+	if err != nil {
+		t.Errorf("Error creating temp file: %s", err)
+		return
+	}
+	defer os.Remove(tmp)
+	existing, _ = SubIDLoad(tmp, logger)
+	err = SubIDUpdate(users, existing, subids, tmp, logger)
+	if err != nil {
+		t.Errorf("Unexpected an error: %s", err)
+	}
+	if len(*subids) != 1 {
+		t.Errorf("Unexpected number of subids, got %d", len(*subids))
+	}
+}
+
+func TestSubGIDSaveError(t *testing.T) {
+	err := SubGIDSave("/dne/subuid", "/dne/subgid")
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+	tmp, err := test.CreateTmpFile("subuid", log.NewNopLogger())
+	if err != nil {
+		t.Errorf("Error creating temp file: %s", err)
+		return
+	}
+	defer os.Remove(tmp)
+	err = SubGIDSave(tmp, "/dne/subgid")
+	if err == nil {
+		t.Errorf("Expected an error")
 	}
 }

@@ -92,10 +92,7 @@ func main() {
 
 	for {
 		var exitCode int
-		start := time.Now()
-		metrics.MetricLastRun.Set(float64(start.Unix()))
 		err = run(logger)
-		metrics.MetricDuration.Set(time.Since(start).Seconds())
 		if err != nil {
 			metrics.MetricError.Set(1)
 			level.Error(logger).Log("err", err)
@@ -115,6 +112,8 @@ func main() {
 }
 
 func run(logger log.Logger) error {
+	metrics.MetricLastRun.Set(float64(time.Now().Unix()))
+	defer metrics.Duration()()
 	config := &config.Config{
 		LdapURL:         *ldapURL,
 		LdapTLS:         *ldapTLS,
