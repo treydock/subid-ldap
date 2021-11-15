@@ -36,6 +36,17 @@ cp /usr/local/share/subid-ldap/subid-ldap.service /etc/systemd/system/subid-ldap
 The environment file `/etc/sysconfig/subid-ldap` would need to contain necessary configurations or directly edit
 `/etc/systemd/system/subid-ldap.service` to add the necessary flag.
 
+### Docker
+
+Add additional flags either via additional environment variables or passing the flags after the image name.
+
+```
+docker run --detach --rm --name subid-ldap \
+  -v /etc/subuid:/host/subuid -v /etc/subgid:/host/subgid \
+  -e SUBID_SUBUID=/host/subuid -e SUBID_SUBGID=/host/subgid \
+  -e LDAP_URL=ldap://example.com -e DAEMON=true treydock/subid-ldap:latest
+```
+
 ## Configuration
 
 The subid-ldap can be run as daemon with `--daemon` flag or executed via cron.
