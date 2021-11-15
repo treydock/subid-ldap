@@ -1,0 +1,16 @@
+[Unit]
+Description=SubID LDAP
+Wants=basic.target
+After=basic.target
+
+[Service]
+User=root
+Group=root
+SyslogIdentifier=subid-ldap
+EnvironmentFile=-/etc/sysconfig/subid-ldap
+ExecStart=/usr/sbin/subid-ldap
+KillMode=process
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
