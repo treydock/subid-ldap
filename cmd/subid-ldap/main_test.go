@@ -351,6 +351,71 @@ subid_ldap_subid_total 4`
 	}
 }
 
+func TestRunErrors(t *testing.T) {
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	subuid, err := test.CreateTmpFile("subuid", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(subuid)
+	subgid, err := test.CreateTmpFile("subgid", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(subgid)
+	tmpMetrics, err := test.CreateTmpFile("metrics", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	defer os.Remove(tmpMetrics)
+	args := []string{
+		fmt.Sprintf("--ldap.url=ldap://%s", ldapserver),
+		fmt.Sprintf("--ldap.user-base-dn=%s", test.UserBaseDN),
+		"--ldap.bind-dn=dne",
+		"--ldap.bind-password=password",
+		fmt.Sprintf("--subid.subuid=%s", subuid),
+		fmt.Sprintf("--subid.subgid=%s", subgid),
+		fmt.Sprintf("--ldap.user-filter=%s", test.UserFilter),
+		fmt.Sprintf("--metrics.path=%s", tmpMetrics),
+	}
+	if _, err := kingpin.CommandLine.Parse(args); err != nil {
+		t.Fatal(err)
+	}
+	metrics.ResetMetrics()
+	err = run(logger)
+	if err == nil {
+		t.Errorf("Expected an error")
+	}
+	expectedErr := `# HELP subid_ldap_error Indicates an error was encountered
+# TYPE subid_ldap_error gauge
+subid_ldap_error 1`
+	expectedMetrics := `# HELP subid_ldap_subid_added Number of subid entries added
+# TYPE subid_ldap_subid_added gauge
+subid_ldap_subid_added 0
+# HELP subid_ldap_subid_removed Number of subid entries removed
+# TYPE subid_ldap_subid_removed gauge
+subid_ldap_subid_removed 0
+# HELP subid_ldap_subid_total Total number of subid entries
+# TYPE subid_ldap_subid_total gauge
+subid_ldap_subid_total 0`
+
+	if err := testutil.GatherAndCompare(metrics.MetricGathers(false), strings.NewReader(expectedErr+"\n"+expectedMetrics+"\n"),
+		"subid_ldap_error", "subid_ldap_subid_added", "subid_ldap_subid_removed", "subid_ldap_subid_total"); err != nil {
+		t.Errorf("unexpected collecting result:\n%s", err)
+	}
+	metricsContent, err := os.ReadFile(tmpMetrics)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if !strings.Contains(string(metricsContent), expectedErr) {
+		t.Errorf("Unexpected metrics file content\nExpected:\n%s\nGot:\n%s", expectedErr, string(metricsContent))
+	}
+	if !strings.Contains(string(metricsContent), expectedMetrics) {
+		t.Errorf("Unexpected metrics file content\nExpected:\n%s\nGot:\n%s", expectedMetrics, string(metricsContent))
+	}
+}
+
 func TestValidateArgs(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse([]string{}); err == nil {
 		t.Errorf("Expected error parsing lack of args")

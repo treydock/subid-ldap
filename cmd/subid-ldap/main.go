@@ -85,7 +85,6 @@ func main() {
 		var exitCode int
 		err = run(logger)
 		if err != nil {
-			metrics.MetricError.Set(1)
 			level.Error(logger).Log("err", err)
 		}
 		if *daemon {
@@ -97,11 +96,13 @@ func main() {
 }
 
 func run(logger log.Logger) error {
+	var err error
 	metrics.MetricLastRun.Set(float64(time.Now().Unix()))
-	defer metrics.Duration()()
 	if !*daemon && *metricsPath != "" {
 		defer metrics.MetricsWrite(*metricsPath, metrics.MetricGathers(false), logger)
 	}
+	defer metrics.Duration()()
+	defer metrics.Error()(&err)
 	config := &config.Config{
 		LdapURL:         *ldapURL,
 		LdapTLS:         *ldapTLS,
