@@ -130,3 +130,11 @@ func Duration() func() {
 		MetricDuration.Set(time.Since(start).Seconds())
 	}
 }
+
+func Error() func(*error) {
+	return func(err *error) {
+		if *err != nil {
+			MetricError.Set(1)
+		}
+	}
+}
