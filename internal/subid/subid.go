@@ -79,7 +79,7 @@ func SubIDManaged(path string, c *config.Config, logger log.Logger) (bool, error
 		level.Error(logger).Log("msg", "Unable to check if subid exists", "err", err)
 		return false, err
 	} else if !exists {
-		return true, nil
+		return false, nil
 	}
 	level.Debug(logger).Log("msg", "Read subid file", "path", path)
 	content, err := os.ReadFile(path)
@@ -87,9 +87,6 @@ func SubIDManaged(path string, c *config.Config, logger log.Logger) (bool, error
 		return false, err
 	}
 	lines := strings.Split(string(content), "\n")
-	if len(lines) == 0 {
-		return false, nil
-	}
 	header := SubIDHeader(c)
 	level.Debug(logger).Log("msg", "Check if line is managed", "line", lines[0], "header", header)
 	if strings.HasPrefix(lines[0], "#") && strings.Contains(lines[0], header) {
