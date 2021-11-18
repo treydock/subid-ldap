@@ -87,6 +87,20 @@ func TestSubIDUnManaged(t *testing.T) {
 	if managed {
 		t.Errorf("File should be unmanaged, not managed")
 	}
+	tmp, err := test.CreateTmpFile("subuid", logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+		return
+	}
+	defer os.Remove(tmp)
+	managed, err = SubIDManaged(tmp, &c, logger)
+	if err != nil {
+		t.Errorf("Unexpected error %s", err)
+		return
+	}
+	if managed {
+		t.Errorf("File should be unmanaged, not managed")
+	}
 }
 
 func TestSubIDManagedErrors(t *testing.T) {
