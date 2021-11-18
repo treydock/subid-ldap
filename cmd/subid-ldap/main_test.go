@@ -103,7 +103,7 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	expectedSubUID := `# File managed by subid-ldap
+	expectedSubUID := `# Managed by subid-ldap: start=65537 range=65536
 1000:65537:65536
 1001:131074:65536
 1002:196611:65536
@@ -163,7 +163,7 @@ subid_ldap_subid_total 4`
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	expectedSubUID = `# File managed by subid-ldap
+	expectedSubUID = `# Managed by subid-ldap: start=65537 range=65536
 1000:65537:65536
 1001:131074:65536
 1002:196611:65536`
@@ -210,7 +210,7 @@ func TestRunExisting(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	expectedSubUID := `# File managed by subid-ldap
+	expectedSubUID := `# Managed by subid-ldap: start=65537 range=65536
 1000:65537:65536
 1001:131074:65536
 1003:196611:65536
@@ -262,7 +262,7 @@ func TestRunExisting(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	expectedSubUID = `# File managed by subid-ldap
+	expectedSubUID = `# Managed by subid-ldap: start=65537 range=65536
 1000:65537:65536
 1001:131074:65536
 1002:262148:65536`
