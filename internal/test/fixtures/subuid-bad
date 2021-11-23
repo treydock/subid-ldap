@@ -1,4 +1,4 @@
-# Managed by subid-ldap
+# Managed by subid-ldap: start=65537 range=65536
 1000:foo:65536
 1001:131074:bar
 1003:196611:65536

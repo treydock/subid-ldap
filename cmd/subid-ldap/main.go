@@ -103,7 +103,7 @@ func run(logger log.Logger) error {
 	}
 	defer metrics.Duration()()
 	defer metrics.Error()(&err)
-	config := &config.Config{
+	c := &config.Config{
 		LdapURL:         *ldapURL,
 		LdapTLS:         *ldapTLS,
 		LdapTLSVerify:   *ldapTLSVerify,
@@ -118,12 +118,12 @@ func run(logger log.Logger) error {
 		SubIDStart:      *subIDStart,
 		SubIDRange:      *subIDRange,
 	}
-	l, err := localldap.LDAPConnect(config, logger)
+	l, err := localldap.LDAPConnect(c, logger)
 	if err != nil {
 		return err
 	}
 	defer l.Close()
-	users, err := localldap.LDAPUsers(l, config, logger)
+	users, err := localldap.LDAPUsers(l, c, logger)
 	if err != nil {
 		return err
 	}
@@ -132,26 +132,26 @@ func run(logger log.Logger) error {
 	subid.SubGIDPath = *subGIDPath
 	level.Debug(logger).Log("msg", "LDAP returned users count", "count", len(users))
 	runLogger := log.With(logger, "subuid", subid.SubUIDPath)
-	managed, err := subid.SubIDManaged(subid.SubUIDPath, runLogger)
+	managed, err := subid.SubIDManaged(subid.SubUIDPath, c, runLogger)
 	if err != nil {
 		level.Error(runLogger).Log("msg", "Failed to check managed state of subid", "err", err)
 	}
 	if managed {
-		subids := subid.SubIDGenerate(config, logger)
+		subids := subid.SubIDGenerate(c, logger)
 		existingSubIDs, err := subid.SubIDLoad(subid.SubUIDPath, runLogger)
 		if err != nil {
 			level.Error(runLogger).Log("msg", "Failed to load subid file", "err", err)
 			return err
 		}
 		level.Debug(runLogger).Log("msg", "Existing subuids loaded", "count", len(*existingSubIDs))
-		err = subid.SubIDUpdate(users, existingSubIDs, subids, subid.SubUIDPath, runLogger)
+		err = subid.SubIDUpdate(users, existingSubIDs, subids, subid.SubUIDPath, c, runLogger)
 		if err != nil {
 			level.Error(runLogger).Log("msg", "Failed to update subid file", "err", err)
 			return err
 		}
 		level.Info(runLogger).Log("msg", "Successfully updated subids")
 	} else {
-		err = subid.SubIDSaveNew(users, subid.SubUIDPath, config)
+		err = subid.SubIDSaveNew(users, subid.SubUIDPath, c)
 		if err != nil {
 			level.Error(runLogger).Log("msg", "Failed to save new subid file", "err", err)
 			return err

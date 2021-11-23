@@ -46,8 +46,8 @@ type SubIDEntry struct {
 
 type SubID *map[int]SubIDEntry
 
-func SubIDHeader() string {
-	return fmt.Sprintf("# File managed by %s", config.AppName)
+func SubIDHeader(c *config.Config) string {
+	return fmt.Sprintf("# Managed by %s: start=%d range=%d", config.AppName, c.SubIDStart, c.SubIDRange)
 }
 
 func SubIDKeys(input SubID) []int {
@@ -74,12 +74,12 @@ func SubIDGenerate(config *config.Config, logger log.Logger) SubID {
 	return &entries
 }
 
-func SubIDManaged(path string, logger log.Logger) (bool, error) {
+func SubIDManaged(path string, c *config.Config, logger log.Logger) (bool, error) {
 	if exists, err := utils.Exists(path); err != nil {
 		level.Error(logger).Log("msg", "Unable to check if subid exists", "err", err)
 		return false, err
 	} else if !exists {
-		return true, nil
+		return false, nil
 	}
 	level.Debug(logger).Log("msg", "Read subid file", "path", path)
 	content, err := os.ReadFile(path)
@@ -87,7 +87,9 @@ func SubIDManaged(path string, logger log.Logger) (bool, error) {
 		return false, err
 	}
 	lines := strings.Split(string(content), "\n")
-	if strings.HasPrefix(lines[0], "#") && strings.Contains(lines[0], config.AppName) {
+	header := SubIDHeader(c)
+	level.Debug(logger).Log("msg", "Check if line is managed", "line", lines[0], "header", header)
+	if strings.HasPrefix(lines[0], "#") && strings.Contains(lines[0], header) {
 		return true, nil
 	}
 	return false, nil
@@ -126,15 +128,15 @@ func SubIDLoad(path string, logger log.Logger) (SubID, error) {
 	return &entries, nil
 }
 
-func SubIDSaveNew(users []string, path string, config *config.Config) error {
+func SubIDSaveNew(users []string, path string, c *config.Config) error {
 	metrics.MetricSubIDTotal.Set(float64(len(users)))
 	metrics.MetricSubIDAdded.Set(float64(len(users)))
-	lines := []string{SubIDHeader()}
-	id := config.SubIDStart
+	lines := []string{SubIDHeader(c)}
+	id := c.SubIDStart
 	for _, user := range users {
-		line := fmt.Sprintf("%s:%d:%d", user, id, config.SubIDRange)
+		line := fmt.Sprintf("%s:%d:%d", user, id, c.SubIDRange)
 		lines = append(lines, line)
-		id = id + config.SubIDRange + 1
+		id = id + c.SubIDRange + 1
 	}
 	content := []byte(strings.Join(lines, "\n"))
 	err := os.WriteFile(path, content, 0644)
@@ -144,7 +146,7 @@ func SubIDSaveNew(users []string, path string, config *config.Config) error {
 	return nil
 }
 
-func SubIDUpdate(users []string, existing SubID, subids SubID, path string, logger log.Logger) error {
+func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *config.Config, logger log.Logger) error {
 	metrics.MetricSubIDTotal.Set(float64(len(users)))
 	var added, removed float64
 	// Remove users from existing if no longer valid
@@ -204,7 +206,7 @@ func SubIDUpdate(users []string, existing SubID, subids SubID, path string, logg
 	metrics.MetricSubIDAdded.Set(added)
 	metrics.MetricSubIDRemoved.Set(removed)
 
-	lines := []string{SubIDHeader()}
+	lines := []string{SubIDHeader(c)}
 	for _, id := range SubIDKeys(subids) {
 		if (*subids)[id].UID == "" {
 			continue

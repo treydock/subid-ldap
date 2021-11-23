@@ -58,7 +58,8 @@ func TestSubIDManaged(t *testing.T) {
 		return
 	}
 	defer os.Remove(fixture)
-	managed, err := SubIDManaged(fixture, logger)
+	c := test.TestConfig()
+	managed, err := SubIDManaged(fixture, &c, logger)
 	if err != nil {
 		t.Errorf("Unexpected error %s", err)
 		return
@@ -77,7 +78,8 @@ func TestSubIDUnManaged(t *testing.T) {
 		return
 	}
 	defer os.Remove(fixture)
-	managed, err := SubIDManaged(fixture, logger)
+	c := test.TestConfig()
+	managed, err := SubIDManaged(fixture, &c, logger)
 	if err != nil {
 		t.Errorf("Unexpected error %s", err)
 		return
@@ -85,17 +87,13 @@ func TestSubIDUnManaged(t *testing.T) {
 	if managed {
 		t.Errorf("File should be unmanaged, not managed")
 	}
-}
-
-func TestSubIDManagedErrors(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
-	managed, err := SubIDManaged("/dne", logger)
+	managed, err = SubIDManaged("/dne", &c, logger)
 	if err != nil {
-		t.Fatalf("Unexpected error %s", err)
+		t.Errorf("Unexpected error %s", err)
+		return
 	}
-	if !managed {
-		t.Errorf("File should be managed, not unmanaged")
+	if managed {
+		t.Errorf("File should be unmanaged, not managed")
 	}
 }
 
@@ -209,7 +207,7 @@ func TestSubIDUpdate(t *testing.T) {
 	}
 	c := test.TestConfig()
 	subids := SubIDGenerate(&c, logger)
-	err = SubIDUpdate(users, existing, subids, tmp, logger)
+	err = SubIDUpdate(users, existing, subids, tmp, &c, logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 		return
@@ -240,7 +238,7 @@ func TestSubIDUpdateError(t *testing.T) {
 	subids := SubIDGenerate(&c, logger)
 	users := []string{"1000", "1001", "1002"}
 	existing, _ := SubIDLoad("/dne/test", logger)
-	err := SubIDUpdate(users, existing, subids, "/dne/test", logger)
+	err := SubIDUpdate(users, existing, subids, "/dne/test", &c, logger)
 	if err == nil {
 		t.Errorf("Expected an error")
 	}
@@ -255,7 +253,7 @@ func TestSubIDUpdateError(t *testing.T) {
 	}
 	defer os.Remove(tmp)
 	existing, _ = SubIDLoad(tmp, logger)
-	err = SubIDUpdate(users, existing, subids, tmp, logger)
+	err = SubIDUpdate(users, existing, subids, tmp, &c, logger)
 	if err != nil {
 		t.Errorf("Unexpected an error: %s", err)
 	}
