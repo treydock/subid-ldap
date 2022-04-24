@@ -21,7 +21,7 @@ The contents of `/etc/subuid` are copied to `/etc/subgid` when changes are made.
 ### Install from archive
 
 ```
-wget -O /tmp/subid-ldap.tar.gz https://github.com/treydock/subid-ldap/releases/download/v0.1.0/subid-ldap_0.1.0_linux_amd64.tar.gz
+wget -O /tmp/subid-ldap.tar.gz https://github.com/treydock/subid-ldap/releases/download/v0.2.0/subid-ldap_0.2.0_linux_amd64.tar.gz
 mkdir /usr/local/share/subid-ldap
 tar xf /tmp/subid-ldap.tar.gz -C /usr/local/share/subid-ldap
 ln -s /usr/local/share/subid-ldap/subid-ldap /usr/local/sbin/subid-ldap
