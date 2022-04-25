@@ -1,3 +1,7 @@
+## v0.3.0 / 2022-04-25
+
+* Update to Go 1.18.1
+
 ## v0.2.0 / 2021-11-23
 
 * Replace subid maps if start ID or range change (#5)
