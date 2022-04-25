@@ -17,11 +17,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17'
+          go-version: '1.18.1'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.29
+          version: v1.33.0
           args: --timeout=2m
       - name: Run tests
         run: make all
@@ -39,7 +39,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17'
+          go-version: '1.18.1'
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - uses: actions/cache@v2
