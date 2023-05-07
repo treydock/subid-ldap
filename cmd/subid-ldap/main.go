@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/common/promlog"
@@ -30,7 +31,6 @@ import (
 	"github.com/treydock/subid-ldap/internal/metrics"
 	"github.com/treydock/subid-ldap/internal/subid"
 	"github.com/treydock/subid-ldap/internal/utils"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
