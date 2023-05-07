@@ -1,8 +1,8 @@
-GOPATH := $(shell go env GOPATH)
+export GOPATH ?= $(firstword $(subst :, ,$(shell go env GOPATH)))
 GOOS := linux
 GOARCH := amd64
 GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint
-GOLANGCI_LINT_VERSION := v1.45.2
+GOLANGCI_LINT_VERSION := v1.51.2
 VERSION ?= $(shell git describe --tags --abbrev=0 || git rev-parse --short HEAD)
 GITSHA := $(shell git rev-parse HEAD)
 GITBRANCH := $(shell git rev-parse --abbrev-ref HEAD)
