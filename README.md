@@ -1,7 +1,6 @@
 [![CI Status](https://github.com/treydock/subid-ldap/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/treydock/subid-ldap/actions?query=workflow%3Atest)
 [![GitHub release](https://img.shields.io/github/v/release/treydock/subid-ldap?include_prereleases&sort=semver)](https://github.com/treydock/subid-ldap/releases/latest)
 ![GitHub All Releases](https://img.shields.io/github/downloads/treydock/subid-ldap/total)
-![Docker Pulls](https://img.shields.io/docker/pulls/treydock/subid-ldap)
 [![Go Report Card](https://goreportcard.com/badge/github.com/treydock/subid-ldap?ts=1)](https://goreportcard.com/report/github.com/treydock/subid-ldap)
 [![codecov](https://codecov.io/gh/treydock/subid-ldap/branch/main/graph/badge.svg)](https://codecov.io/gh/treydock/subid-ldap)
 
@@ -44,7 +43,7 @@ Add additional flags either via additional environment variables or passing the 
 docker run --detach --rm --name subid-ldap \
   -v /etc/subuid:/host/subuid -v /etc/subgid:/host/subgid \
   -e SUBID_SUBUID=/host/subuid -e SUBID_SUBGID=/host/subgid \
-  -e LDAP_URL=ldap://example.com -e DAEMON=true treydock/subid-ldap:latest
+  -e LDAP_URL=ldap://example.com -e DAEMON=true quay.io/treydock/subid-ldap:latest
 ```
 
 ## Configuration
