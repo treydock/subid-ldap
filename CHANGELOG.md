@@ -1,3 +1,7 @@
+## v0.5.0 / 2023-07-08
+
+* Switch primary container images to quay.io (#8)
+
 ## v0.4.0 / 2023-05-07
 
 * Update to Go 1.20.4 and update Go module dependencies (#7)
