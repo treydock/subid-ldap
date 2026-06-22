@@ -1,3 +1,12 @@
+## v0.6.0 / 2026-06-22
+
+* Numerous updates (#13)
+  * Numerous updates
+  * Update to Go 1.26.4
+  * Update all Go module dependencies
+  * Switch logging to slog
+  * Update all Github Actions to their latest versions
+
 ## v0.5.0 / 2023-07-08
 
 * Switch primary container images to quay.io (#8)
