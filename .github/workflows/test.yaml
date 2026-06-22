@@ -50,7 +50,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
-          args: build --snapshot
+          args: build --snapshot --clean
       - name: Docker Build
         uses: docker/build-push-action@v7
         with:
