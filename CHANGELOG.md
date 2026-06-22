@@ -6,6 +6,8 @@
   * Update all Go module dependencies
   * Switch logging to slog
   * Update all Github Actions to their latest versions
+* Missed some module updates (#14)
+
 
 ## v0.5.0 / 2023-07-08
 
