@@ -16,20 +16,19 @@ package ldap
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"log/slog"
 	"net"
 	"net/url"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/treydock/subid-ldap/internal/config"
 )
 
-func LDAPConnect(config *config.Config, logger log.Logger) (*ldap.Conn, error) {
-	level.Debug(logger).Log("msg", "Connecting to LDAP", "url", config.LdapURL)
+func LDAPConnect(config *config.Config, logger *slog.Logger) (*ldap.Conn, error) {
+	logger.Debug("Connecting to LDAP", "url", config.LdapURL)
 	l, err := ldap.DialURL(config.LdapURL)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error connecting to LDAP URL", "url", config.LdapURL, "err", err)
+		logger.Error("Error connecting to LDAP URL", "url", config.LdapURL, "err", err)
 		return l, err
 	}
 	if config.LdapTLS {
@@ -39,26 +38,26 @@ func LDAPConnect(config *config.Config, logger log.Logger) (*ldap.Conn, error) {
 		}
 	}
 	if config.BindDN != "" && config.BindPassword != "" {
-		level.Debug(logger).Log("msg", "Binding to LDAP", "url", config.LdapURL, "binddn", config.BindDN)
+		logger.Debug("Binding to LDAP", "url", config.LdapURL, "binddn", config.BindDN)
 		err = l.Bind(config.BindDN, config.BindPassword)
 		if err != nil {
-			level.Error(logger).Log("msg", "Error binding to LDAP", "binddn", config.BindDN, "err", err)
+			logger.Error("Error binding to LDAP", "binddn", config.BindDN, "err", err)
 			return l, err
 		}
 	}
 	return l, err
 }
 
-func LDAPTLS(l *ldap.Conn, config *config.Config, logger log.Logger) error {
+func LDAPTLS(l *ldap.Conn, config *config.Config, logger *slog.Logger) error {
 	var err error
 	u, err := url.Parse(config.LdapURL)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error parsing LDAP URL", "url", config.LdapURL, "err", err)
+		logger.Error("Error parsing LDAP URL", "url", config.LdapURL, "err", err)
 		return err
 	}
 	host, _, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error getting LDAP host name", "host", u.Host, "err", err)
+		logger.Error("Error getting LDAP host name", "host", u.Host, "err", err)
 		return err
 	}
 	tlsConfig := &tls.Config{
@@ -70,18 +69,18 @@ func LDAPTLS(l *ldap.Conn, config *config.Config, logger log.Logger) error {
 		caCertPool.AppendCertsFromPEM([]byte(config.LdapTLSCACert))
 		tlsConfig.RootCAs = caCertPool
 	}
-	level.Debug(logger).Log("msg", "Performing Start TLS with LDAP server")
+	logger.Debug("Performing Start TLS with LDAP server")
 	err = l.StartTLS(tlsConfig)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error starting TLS for LDAP connection", "err", err)
+		logger.Error("Error starting TLS for LDAP connection", "err", err)
 	}
 	return err
 }
 
-func LDAPUsers(l *ldap.Conn, config *config.Config, logger log.Logger) ([]string, error) {
+func LDAPUsers(l *ldap.Conn, config *config.Config, logger *slog.Logger) ([]string, error) {
 	users := []string{}
 	attrs := []string{config.UserUIDAttr}
-	level.Debug(logger).Log("msg", "Running user search", "basedn", config.UserBaseDN, "filter", config.UserFilter, "attr", config.UserUIDAttr)
+	logger.Debug("Running user search", "basedn", config.UserBaseDN, "filter", config.UserFilter, "attr", config.UserUIDAttr)
 	request := ldap.NewSearchRequest(config.UserBaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 		config.UserFilter, attrs, nil)
 	result, err := LDAPSearch(l, request, "user", config, logger)
@@ -92,7 +91,7 @@ func LDAPUsers(l *ldap.Conn, config *config.Config, logger log.Logger) ([]string
 	return users, err
 }
 
-func LDAPSearch(l *ldap.Conn, request *ldap.SearchRequest, queryType string, config *config.Config, logger log.Logger) (*ldap.SearchResult, error) {
+func LDAPSearch(l *ldap.Conn, request *ldap.SearchRequest, queryType string, config *config.Config, logger *slog.Logger) (*ldap.SearchResult, error) {
 	var result *ldap.SearchResult
 	var err error
 	if config.PagedSearch {
@@ -101,9 +100,9 @@ func LDAPSearch(l *ldap.Conn, request *ldap.SearchRequest, queryType string, con
 		result, err = l.Search(request)
 	}
 	if err != nil {
-		level.Error(logger).Log("msg", "Error getting results", "type", queryType, "err", err)
+		logger.Error("Error getting results", "type", queryType, "err", err)
 	} else {
-		level.Debug(logger).Log("msg", "results", "type", queryType, "count", len(result.Entries))
+		logger.Debug("results", "type", queryType, "count", len(result.Entries))
 	}
 	return result, err
 }

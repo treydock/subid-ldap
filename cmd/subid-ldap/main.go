@@ -16,15 +16,14 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	kingpin "github.com/alecthomas/kingpin/v2"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/promslog"
+	"github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/treydock/subid-ldap/internal/config"
 	localldap "github.com/treydock/subid-ldap/internal/ldap"
@@ -56,26 +55,26 @@ var (
 )
 
 func main() {
-	promlogConfig := &promlog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
+	promslogConfig := &promslog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promslogConfig)
 	kingpin.Version(version.Print(config.AppName))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 
-	logger := promlog.New(promlogConfig)
+	logger := promslog.New(promslogConfig)
 
 	err := validateArgs(logger)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Starting %s", config.AppName), "version", version.Info())
-	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
+	logger.Info(fmt.Sprintf("Starting %s", config.AppName), "version", version.Info())
+	logger.Info("Build context", "build_context", version.BuildContext())
 
 	if *daemon {
 		go func() {
 			if err := metrics.MetricsServer(*listenAddress); err != nil {
-				level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+				logger.Error("Error starting HTTP server", "err", err)
 				os.Exit(1)
 			}
 		}()
@@ -85,7 +84,7 @@ func main() {
 		var exitCode int
 		err = run(logger)
 		if err != nil {
-			level.Error(logger).Log("err", err)
+			logger.Error(err.Error())
 		}
 		if *daemon {
 			time.Sleep(*daemonUpdateInterval)
@@ -95,7 +94,7 @@ func main() {
 	}
 }
 
-func run(logger log.Logger) error {
+func run(logger *slog.Logger) error {
 	var err error
 	metrics.MetricLastRun.Set(float64(time.Now().Unix()))
 	if !*daemon && *metricsPath != "" {
@@ -130,44 +129,44 @@ func run(logger log.Logger) error {
 	utils.SortSliceStringInts(&users)
 	subid.SubUIDPath = *subUIDPath
 	subid.SubGIDPath = *subGIDPath
-	level.Debug(logger).Log("msg", "LDAP returned users count", "count", len(users))
-	runLogger := log.With(logger, "subuid", subid.SubUIDPath)
+	logger.Debug("LDAP returned users count", "count", len(users))
+	runLogger := logger.With("subuid", subid.SubUIDPath)
 	managed, err := subid.SubIDManaged(subid.SubUIDPath, c, runLogger)
 	if err != nil {
-		level.Error(runLogger).Log("msg", "Failed to check managed state of subid", "err", err)
+		runLogger.Error("Failed to check managed state of subid", "err", err)
 	}
 	if managed {
 		subids := subid.SubIDGenerate(c, logger)
 		existingSubIDs, err := subid.SubIDLoad(subid.SubUIDPath, runLogger)
 		if err != nil {
-			level.Error(runLogger).Log("msg", "Failed to load subid file", "err", err)
+			runLogger.Error("Failed to load subid file", "err", err)
 			return err
 		}
-		level.Debug(runLogger).Log("msg", "Existing subuids loaded", "count", len(*existingSubIDs))
+		runLogger.Debug("Existing subuids loaded", "count", len(*existingSubIDs))
 		err = subid.SubIDUpdate(users, existingSubIDs, subids, subid.SubUIDPath, c, runLogger)
 		if err != nil {
-			level.Error(runLogger).Log("msg", "Failed to update subid file", "err", err)
+			runLogger.Error("Failed to update subid file", "err", err)
 			return err
 		}
-		level.Info(runLogger).Log("msg", "Successfully updated subids")
+		runLogger.Info("Successfully updated subids")
 	} else {
 		err = subid.SubIDSaveNew(users, subid.SubUIDPath, c)
 		if err != nil {
-			level.Error(runLogger).Log("msg", "Failed to save new subid file", "err", err)
+			runLogger.Error("Failed to save new subid file", "err", err)
 			return err
 		}
-		level.Info(runLogger).Log("msg", "Successfully create subids")
+		runLogger.Info("Successfully create subids")
 	}
 	err = subid.SubGIDSave(subid.SubUIDPath, subid.SubGIDPath)
 	if err != nil {
-		level.Error(runLogger).Log("msg", "Failed to copy subuid to subgid", "subgid", subid.SubGIDPath, "err", err)
+		runLogger.Error("Failed to copy subuid to subgid", "subgid", subid.SubGIDPath, "err", err)
 		return err
 	}
 
 	return nil
 }
 
-func validateArgs(logger log.Logger) error {
+func validateArgs(logger *slog.Logger) error {
 	errs := []string{}
 	var err error
 	if (*ldapBindDN != "" && *ldapBindPassword == "") || (*ldapBindDN == "" && *ldapBindPassword != "") {
@@ -175,7 +174,7 @@ func validateArgs(logger log.Logger) error {
 	}
 	if len(errs) > 0 {
 		err = errors.New(strings.Join(errs, ", "))
-		level.Error(logger).Log("err", err)
+		logger.Error(err.Error())
 	}
 	return err
 }

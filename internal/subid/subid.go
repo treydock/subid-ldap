@@ -15,14 +15,13 @@ package subid
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/treydock/subid-ldap/internal/config"
 	"github.com/treydock/subid-ldap/internal/metrics"
 	"github.com/treydock/subid-ldap/internal/utils"
@@ -59,9 +58,9 @@ func SubIDKeys(input SubID) []int {
 	return keys
 }
 
-func SubIDGenerate(config *config.Config, logger log.Logger) SubID {
+func SubIDGenerate(config *config.Config, logger *slog.Logger) SubID {
 	length := ((maxID - float64(config.SubIDStart)) / float64(config.SubIDRange))
-	level.Debug(logger).Log("msg", "Generate entries",
+	logger.Debug("Generate entries",
 		"length", int64(math.Floor(length)), "max", maxID, "start", config.SubIDStart, "range", config.SubIDRange)
 	entries := make(map[int]SubIDEntry, int(math.Floor(length)))
 	for i := config.SubIDStart; i < int(maxID); i = i + config.SubIDRange + 1 {
@@ -74,28 +73,28 @@ func SubIDGenerate(config *config.Config, logger log.Logger) SubID {
 	return &entries
 }
 
-func SubIDManaged(path string, c *config.Config, logger log.Logger) (bool, error) {
+func SubIDManaged(path string, c *config.Config, logger *slog.Logger) (bool, error) {
 	if exists, err := utils.Exists(path); err != nil {
-		level.Error(logger).Log("msg", "Unable to check if subid exists", "err", err)
+		logger.Error("Unable to check if subid exists", "err", err)
 		return false, err
 	} else if !exists {
 		return false, nil
 	}
-	level.Debug(logger).Log("msg", "Read subid file", "path", path)
+	logger.Debug("Read subid file", "path", path)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return false, err
 	}
 	lines := strings.Split(string(content), "\n")
 	header := SubIDHeader(c)
-	level.Debug(logger).Log("msg", "Check if line is managed", "line", lines[0], "header", header)
+	logger.Debug("Check if line is managed", "line", lines[0], "header", header)
 	if strings.HasPrefix(lines[0], "#") && strings.Contains(lines[0], header) {
 		return true, nil
 	}
 	return false, nil
 }
 
-func SubIDLoad(path string, logger log.Logger) (SubID, error) {
+func SubIDLoad(path string, logger *slog.Logger) (SubID, error) {
 	entries := make(map[int]SubIDEntry)
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -105,17 +104,17 @@ func SubIDLoad(path string, logger log.Logger) (SubID, error) {
 	for _, line := range lines {
 		items := strings.Split(line, ":")
 		if len(items) != 3 {
-			level.Debug(logger).Log("msg", "Skipping line that does not contain 3 items", "line", line)
+			logger.Debug("Skipping line that does not contain 3 items", "line", line)
 			continue
 		}
 		id, err := strconv.Atoi(items[1])
 		if err != nil {
-			level.Error(logger).Log("msg", "Unable to parse ID integer", "line", line, "err", err)
+			logger.Error("Unable to parse ID integer", "line", line, "err", err)
 			continue
 		}
 		count, err := strconv.Atoi(items[2])
 		if err != nil {
-			level.Error(logger).Log("msg", "Unable to parse count integer", "line", line, "err", err)
+			logger.Error("Unable to parse count integer", "line", line, "err", err)
 			continue
 		}
 		entry := SubIDEntry{
@@ -146,13 +145,13 @@ func SubIDSaveNew(users []string, path string, c *config.Config) error {
 	return nil
 }
 
-func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *config.Config, logger log.Logger) error {
+func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *config.Config, logger *slog.Logger) error {
 	metrics.MetricSubIDTotal.Set(float64(len(users)))
 	var added, removed float64
 	// Remove users from existing if no longer valid
 	for id, e := range *existing {
 		if !utils.SliceContains(users, e.UID) {
-			level.Debug(logger).Log("msg", "Remove UID from subids", "uid", e.UID)
+			logger.Debug("Remove UID from subids", "uid", e.UID)
 			e.UID = ""
 			(*existing)[id] = e
 			removed++
@@ -162,7 +161,7 @@ func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *c
 	// Add existing
 	existingUsers := []string{}
 	for id, e := range *existing {
-		level.Debug(logger).Log("msg", "Adding existing subid", "uid", e.UID, "id", id)
+		logger.Debug("Adding existing subid", "uid", e.UID, "id", id)
 		existingUsers = append(existingUsers, e.UID)
 		(*subids)[id] = e
 	}
@@ -184,25 +183,25 @@ func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *c
 			unassignedIDs = append(unassignedIDs, id)
 		}
 	}
-	level.Debug(logger).Log("unassignedIDs", len(unassignedIDs))
+	logger.Debug("Dump unassigned IDs", "unassignedIDs", len(unassignedIDs))
 
 	//Add users
 	for i, uid := range newUIDs {
-		level.Debug(logger).Log("msg", "Add users", "i", i, "unassignedIDs", len(unassignedIDs), "uid", uid)
+		logger.Debug("Add users", "i", i, "unassignedIDs", len(unassignedIDs), "uid", uid)
 		if i >= len(unassignedIDs) {
-			level.Error(logger).Log("msg", "Insufficient subids available", "uid", uid)
+			logger.Error("Insufficient subids available", "uid", uid)
 			metrics.MetricError.Set(1)
 			break
 		}
 		id := unassignedIDs[i]
 		s := (*subids)[id]
-		level.Debug(logger).Log("msg", "Adding user subid", "uid", uid, "id", id)
+		logger.Debug("Adding user subid", "uid", uid, "id", id)
 		s.UID = uid
 		(*subids)[id] = s
 		added++
 	}
 
-	level.Debug(logger).Log("msg", "Subids processed", "added", added, "removed", removed)
+	logger.Debug("Subids processed", "added", added, "removed", removed)
 	metrics.MetricSubIDAdded.Set(added)
 	metrics.MetricSubIDRemoved.Set(removed)
 
@@ -215,7 +214,7 @@ func SubIDUpdate(users []string, existing SubID, subids SubID, path string, c *c
 		lines = append(lines, line)
 	}
 	content := []byte(strings.Join(lines, "\n"))
-	level.Debug(logger).Log("msg", "Update subid file", "path", path)
+	logger.Debug("Update subid file", "path", path)
 	err := os.WriteFile(path, content, subidMode)
 	if err != nil {
 		return err

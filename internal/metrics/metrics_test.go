@@ -16,9 +16,9 @@ package metrics
 import (
 	"testing"
 
-	"github.com/go-kit/log"
+	"github.com/prometheus/common/promslog"
 )
 
 func TestMetricsWriteError(t *testing.T) {
-	MetricsWrite("/dne/metrics", MetricGathers(false), log.NewNopLogger())
+	MetricsWrite("/dne/metrics", MetricGathers(false), promslog.NewNopLogger())
 }

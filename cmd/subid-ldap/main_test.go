@@ -16,6 +16,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -23,9 +24,8 @@ import (
 	"time"
 
 	kingpin "github.com/alecthomas/kingpin/v2"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/prometheus/common/promslog"
 	"github.com/treydock/subid-ldap/internal/metrics"
 	"github.com/treydock/subid-ldap/internal/test"
 )
@@ -63,8 +63,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRun(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	subuid, err := test.CreateTmpFile("subuid", logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -176,8 +175,7 @@ subid_ldap_subid_total 4`
 }
 
 func TestRunExisting(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	subuid, err := test.CreateSubUIDFixture("subuid1")
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -295,8 +293,7 @@ func TestRunExisting(t *testing.T) {
 }
 
 func TestRunDaemonMetrics(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	subuid, err := test.CreateTmpFile("subuid", logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -319,7 +316,7 @@ func TestRunDaemonMetrics(t *testing.T) {
 	metrics.ResetMetrics()
 	go func() {
 		if err := metrics.MetricsServer(metricsAddress); err != nil {
-			level.Error(logger).Log("err", err)
+			logger.Error(err.Error())
 		}
 	}()
 	err = run(logger)
@@ -352,8 +349,7 @@ subid_ldap_subid_total 4`
 }
 
 func TestRunErrors(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	subuid, err := test.CreateTmpFile("subuid", logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -431,7 +427,7 @@ func TestValidateArgs(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Errorf("Error parsing args %s", err.Error())
 	}
-	err := validateArgs(log.NewNopLogger())
+	err := validateArgs(promslog.NewNopLogger())
 	if err == nil {
 		t.Fatal("Expected errors")
 	}

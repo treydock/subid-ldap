@@ -11,38 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     name: Test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 3
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.51.2
+          version: v2.11.4
           args: --timeout=5m
+          skip-cache: true
       - name: Run tests
         run: make all
       - name: Run coverage
         run: make coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.txt
+          files: ./coverage.txt
   build:
     runs-on: ubuntu-latest
     name: Build
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v4
       - name: Build
         run: make build
       - name: Run GoReleaser build
@@ -51,7 +52,7 @@ jobs:
           version: latest
           args: build --rm-dist --snapshot
       - name: Docker Build
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v7
         with:
           push: false
           tags: quay.io/treydock/subid-ldap:latest
