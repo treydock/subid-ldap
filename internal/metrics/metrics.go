@@ -14,11 +14,10 @@
 package metrics
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
@@ -117,10 +116,10 @@ func MetricsServer(listenAddress string) error {
 	return http.ListenAndServe(listenAddress, nil)
 }
 
-func MetricsWrite(path string, gatherers prometheus.Gatherers, logger log.Logger) {
+func MetricsWrite(path string, gatherers prometheus.Gatherers, logger *slog.Logger) {
 	err := prometheus.WriteToTextfile(path, gatherers)
 	if err != nil {
-		level.Error(logger).Log("msg", "Failed to write metrics file", "err", err)
+		logger.Error("Failed to write metrics file", "err", err)
 	}
 }
 

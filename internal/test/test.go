@@ -14,12 +14,11 @@
 package test
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/treydock/subid-ldap/internal/config"
 )
 
@@ -37,10 +36,10 @@ func GetFixture(name string) string {
 	return filepath.Join(fixturesDir, name)
 }
 
-func CreateTmpFile(name string, logger log.Logger) (string, error) {
+func CreateTmpFile(name string, logger *slog.Logger) (string, error) {
 	file, err := os.CreateTemp("", name)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error creating temp file", "err", err)
+		logger.Error("Error creating temp file", "err", err)
 		return "", err
 	}
 	defer file.Close()
@@ -48,23 +47,22 @@ func CreateTmpFile(name string, logger log.Logger) (string, error) {
 }
 
 func CreateSubUIDFixture(name string) (string, error) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	fixture := GetFixture(name)
 	tmpFile, err := CreateTmpFile(name, logger)
 	if err != nil {
 		return "", err
 	}
-	level.Debug(logger).Log("msg", "Loading fixture", "fixture", fixture)
+	logger.Debug("Loading fixture", "fixture", fixture)
 	content, err := os.ReadFile(fixture)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error reading fixture file", "err", err)
+		logger.Error("Error reading fixture file", "err", err)
 		return "", err
 	}
-	level.Debug(logger).Log("msg", "Write fixture to tmp", "fixture", fixture, "dest", tmpFile, "content", string(content))
+	logger.Debug("Write fixture to tmp", "fixture", fixture, "dest", tmpFile, "content", string(content))
 	err = os.WriteFile(tmpFile, content, 0644)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error writing file", "err", err)
+		logger.Error("Error writing file", "err", err)
 		return "", err
 	}
 	return tmpFile, nil

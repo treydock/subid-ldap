@@ -1,8 +1,8 @@
 export GOPATH ?= $(firstword $(subst :, ,$(shell go env GOPATH)))
-GOOS := linux
-GOARCH := amd64
+GOHOSTOS     ?= $(shell go env GOHOSTOS)
+GOHOSTARCH   ?= $(shell go env GOHOSTARCH)
 GOLANGCI_LINT := $(GOPATH)/bin/golangci-lint
-GOLANGCI_LINT_VERSION := v1.51.2
+GOLANGCI_LINT_VERSION := v2.11.4
 VERSION ?= $(shell git describe --tags --abbrev=0 || git rev-parse --short HEAD)
 GITSHA := $(shell git rev-parse HEAD)
 GITBRANCH := $(shell git rev-parse --abbrev-ref HEAD)
@@ -13,7 +13,7 @@ export GO111MODULE=auto
 all: unused lint style test
 
 build:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags="\
+	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) CGO_ENABLED=0 go build -ldflags="\
 	-X github.com/prometheus/common/version.Version=$(VERSION) \
 	-X github.com/prometheus/common/version.Revision=$(GITSHA) \
 	-X github.com/prometheus/common/version.Branch=$(GITBRANCH) \
@@ -22,22 +22,20 @@ build:
 	-o subid-ldap cmd/subid-ldap/main.go
 
 test:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -race ./...
+	GO111MODULE=on GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go test $(test-flags) ./...
 
 coverage:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go test -race -coverpkg=./... -coverprofile=coverage.txt.tmp -covermode=atomic ./...
-	cat coverage.txt.tmp | grep -v "test" > coverage.txt
-	rm -f coverage.txt.tmp
+	GO111MODULE=on GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go test $(test-flags) -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
 
 unused:
 	@echo ">> running check for unused/missing packages in go.mod"
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go mod tidy
+	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go mod tidy
 	@git diff --exit-code -- go.sum go.mod
 
 lint: $(GOLANGCI_LINT)
 	@echo ">> running golangci-lint"
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go list -e -compiled -test=true -export=false -deps=true -find=false -tags= -- ./... > /dev/null
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GOLANGCI_LINT) run ./...
+	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go list -e -compiled -test=true -export=false -deps=true -find=false -tags= -- ./... > /dev/null
+	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) $(GOLANGCI_LINT) run ./...
 
 style:
 	@echo ">> checking code style"

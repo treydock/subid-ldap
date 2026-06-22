@@ -14,16 +14,16 @@
 package subid
 
 import (
+	"log/slog"
 	"os"
 	"testing"
 
-	"github.com/go-kit/log"
+	"github.com/prometheus/common/promslog"
 	"github.com/treydock/subid-ldap/internal/test"
 )
 
 func TestSubIDGenerate(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	c := test.TestConfig()
 	subids := SubIDGenerate(&c, logger)
 	if len(*subids) != 65534 {
@@ -35,8 +35,7 @@ func TestSubIDGenerate(t *testing.T) {
 }
 
 func TestSubIDGenerateCustomStartAndRange(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	c := test.TestConfig()
 	c.SubIDStart = 1000000
 	c.SubIDRange = 100000
@@ -50,8 +49,7 @@ func TestSubIDGenerateCustomStartAndRange(t *testing.T) {
 }
 
 func TestSubIDManaged(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	fixture, err := test.CreateSubUIDFixture("subuid1")
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -70,8 +68,7 @@ func TestSubIDManaged(t *testing.T) {
 }
 
 func TestSubIDUnManaged(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	fixture, err := test.CreateSubUIDFixture("subuid1-unmanaged")
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -98,8 +95,7 @@ func TestSubIDUnManaged(t *testing.T) {
 }
 
 func TestSubIDLoad(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	fixture, err := test.CreateSubUIDFixture("subuid1")
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -121,8 +117,7 @@ func TestSubIDLoad(t *testing.T) {
 }
 
 func TestSubIDLoadErrors(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	_, err := SubIDLoad("/dne", logger)
 	if err == nil {
 		t.Fatal("Expected an error")
@@ -161,8 +156,7 @@ func TestSubIDSaveNew(t *testing.T) {
 		t.Errorf("Unexpected error: %s", err)
 		return
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	subids, err := SubIDLoad(tmp.Name(), logger)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -186,8 +180,7 @@ func TestSubIDSaveNewErrors(t *testing.T) {
 }
 
 func TestSubIDUpdate(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	tmp, err := test.CreateTmpFile("subuid", logger)
 	if err != nil {
 		t.Errorf("Error creating temp file: %s", err)
@@ -232,8 +225,7 @@ func TestSubIDUpdate(t *testing.T) {
 }
 
 func TestSubIDUpdateError(t *testing.T) {
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	c := test.TestConfig()
 	subids := SubIDGenerate(&c, logger)
 	users := []string{"1000", "1001", "1002"}
@@ -267,7 +259,7 @@ func TestSubGIDSaveError(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected an error")
 	}
-	tmp, err := test.CreateTmpFile("subuid", log.NewNopLogger())
+	tmp, err := test.CreateTmpFile("subuid", promslog.NewNopLogger())
 	if err != nil {
 		t.Errorf("Error creating temp file: %s", err)
 		return
